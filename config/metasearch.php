@@ -75,27 +75,22 @@ return [
     ],
 
     /*
-     * ACCESS GATE.
+     * Requests per minute per caller.
      *
-     * Required whenever any token above is set. The app refuses to serve in
-     * that state rather than falling back to open, because an open endpoint
-     * with credentials attached is a free gateway to Radix's API for anyone who
-     * finds the URL — the page is not the sensitive thing, the tokens are.
+     * THIS IS THE ONLY THING PROTECTING THE ENDPOINT. The demo is public by
+     * design — no password, no session — so anyone with the URL can search
+     * through it, and every one of those searches spends Radix quota under our
+     * credential. The credential itself never reaches the browser, which is the
+     * part that matters; this bounds the rate at which a stranger can use it.
      *
-     * Set GATE_ENABLED=false to run the endpoint public deliberately. Rate
-     * limiting still applies. That is a legitimate choice for a demo, but it
-     * has to be made on purpose rather than by forgetting a variable.
-     */
-    'gate' => [
-        'enabled' => env('GATE_ENABLED', true),
-        'password' => env('GATE_PASSWORD'),
-    ],
-
-    /*
-     * Requests per minute per caller, once past the gate. A brake on scripted
-     * abuse, not a quota. On a single long-running server this is an accurate
-     * global limit — the Node version carried a caveat here because serverless
-     * gave each instance its own counter.
+     * Tuned for a person flipping switches while reading results, which is
+     * bursty. Note the page issues TWO upstream requests per search when AI
+     * suggestions are on, because those are fetched separately so they cannot
+     * block the main results.
+     *
+     * On a single long-running server this is an accurate global count. The
+     * Node version carried a caveat here because serverless gave every instance
+     * its own counter, which made the same number mean very little.
      */
     'rate_limit' => (int) env('METASEARCH_RATE_LIMIT', 20),
 ];

@@ -1,7 +1,7 @@
 # MetaSearch Demo — Laravel 12 / PHP 8.4
 
 A partner-facing demo of Radix's MetaSearch domain API. One page, one search
-proxy, one password gate.
+proxy. Public — no login.
 
 Built and verified on **PHP 8.4.24** with **Laravel 12.68**.
 
@@ -17,9 +17,15 @@ browser  ->  this app (attaches the token)  ->  metasearch.namify.host
 
 That single fact drives most of the design here. A static site cannot do it.
 
-It also means `/api/search` is a credentialed endpoint: open it to the internet
-and you have given away metered access to Radix's API. That is what the gate
-protects. It is not protecting the page — there is nothing secret on the page.
+It also means `/api/search` is a credentialed endpoint, and this app serves it
+**publicly and unauthenticated by design**. Anyone with the URL can search
+through it, and every search spends Radix quota under our token.
+
+That is a deliberate trade, not an oversight: the demo has to open without a
+password, and the token itself never reaches the browser, which is the part that
+actually matters. The per-IP rate limit is the only thing bounding how fast a
+stranger can use the endpoint. If it is ever found and abused, rotating the
+three tokens is the remedy.
 
 ## Running it
 
@@ -27,15 +33,17 @@ protects. It is not protecting the page — there is nothing secret on the page.
 composer install
 cp .env.example .env
 php artisan key:generate
-# then set the three METASEARCH_TOKEN_* values and GATE_PASSWORD in .env
+# then set the three METASEARCH_TOKEN_* values in .env
 php artisan serve
 ```
 
-Point the web root at `public/`.
+Point the web root at `public/`. **No database is required** — session, cache
+and queue all run without one, so there is nothing to provision and no
+migrations to run.
 
 ## Configuration
 
-Everything lives in `.env`; see `.env.example` for the annotated list. The five
+Everything lives in `.env`; see `.env.example` for the annotated list. The ones
 that matter:
 
 | Variable | Required | Purpose |
@@ -43,41 +51,35 @@ that matter:
 | `METASEARCH_TOKEN_RADIX` | yes | Bearer token for the Radix Domains catalogue |
 | `METASEARCH_TOKEN_CLASSICS` | yes | Radix + Classics |
 | `METASEARCH_TOKEN_FULLCAT` | yes | Full Catalogue |
-| `GATE_PASSWORD` | yes, if any token is set | The shared password partners are given |
-| `GATE_ENABLED` | no (default `true`) | `false` runs `/api/search` public, deliberately |
+| `METASEARCH_RATE_LIMIT` | no (default `20`) | Searches per minute per IP |
 
 Tuning lives in `config/metasearch.php` — catalogue TLD lists, the upstream URL,
 timeout, and rate limit.
 
 ## Deployment notes
 
-**HTTPS.** The gate uses Laravel's session cookie. Serve over HTTPS and set
-`SESSION_SECURE_COOKIE=true`. Over plain HTTP on a LAN address a secure cookie
-is discarded silently and the login loops back to `/gate` forever with no error
-explaining why — worth knowing, because it presents as a broken password.
+**HTTPS.** Nothing here breaks without it — the app is stateless and holds no
+cookie worth protecting — but serve over HTTPS anyway. Partners will be looking
+at it.
 
-**Reverse proxy.** If nginx or Apache sits in front, forward the original host:
-`X-Forwarded-Host` and `X-Forwarded-Proto`, and configure Laravel's
-`TrustProxies` accordingly. Without it the redirect after login points at
-localhost.
+**Reverse proxy.** If nginx or Apache sits in front, forward `X-Forwarded-Proto`
+and configure Laravel's `TrustProxies`, so generated URLs use the right scheme.
 
-**Sessions.** The default file driver is fine for a single server. Behind more
-than one, move `SESSION_DRIVER` to redis or database, or logins will appear to
-fail at random as requests land on different machines.
+**No database.** `DB_CONNECTION=null`, sessions are `array`, cache is `file`,
+queue is `sync`. There is nothing to migrate and nothing to provision.
 
-**Rate limiting** is keyed by IP through Laravel's cache. On one long-running
-server that is an accurate global count.
+**Rate limiting** is keyed by IP through the file cache. On one long-running
+server that is an accurate global count. It is the ONLY protection on the
+endpoint, so if the demo ever needs to be locked down, this and token rotation
+are the levers.
 
 ## Shape of the code
 
 ```
-routes/web.php                           four routes, that is the whole app
+routes/web.php                           two routes, that is the whole app
 config/metasearch.php                    tokens, catalogues, limits
 app/Http/Controllers/SearchController     the proxy — attaches the token
-app/Http/Controllers/GateController       password -> session
-app/Http/Middleware/RequireGate           the gate check
 resources/views/demo.blade.php            the page (generated, see below)
-resources/views/gate.blade.php            the unlock page
 public/assets/app.css, app.js             the front end (generated, see below)
 ```
 
@@ -111,11 +113,9 @@ indistinguishable from being honoured.
 | --- | --- | --- |
 | 200 | upstream payload | passed through verbatim, including upstream errors |
 | 400 | `unknown_catalogue` | not one of the three ids |
-| 401 | `gate_locked` | no valid session |
 | 429 | `rate_limited` | past the per-IP limit |
 | 500 | `server_misconfigured` | that catalogue's token is not set |
 | 502 | `upstream_unreachable` | could not reach the API |
-| 503 | `gate_misconfigured` | tokens set, no password — refusing to serve |
 | 504 | `upstream_timeout` | API did not answer within the timeout |
 
 ## Known upstream issues

@@ -29,18 +29,6 @@ class SearchController extends Controller
 {
     public function __invoke(Request $request): Response
     {
-        /*
-         * FAIL CLOSED. Tokens present with no gate configured is the one state
-         * that must never serve: it is an open proxy in front of credentialed
-         * API access. A misconfigured deployment should read as "the demo is
-         * down", not as "the demo is unprotected".
-         */
-        if ($this->gateMisconfigured()) {
-            Log::error('[api/search] tokens are set but GATE_PASSWORD is not');
-
-            return $this->json(['error' => 'gate_misconfigured'], 503);
-        }
-
         $catalogue = (string) $request->query('catalogue', '');
         $tokens = config('metasearch.tokens');
 
@@ -111,24 +99,6 @@ class SearchController extends Controller
             'content-type' => $upstream->header('content-type') ?: 'application/json; charset=utf-8',
             'cache-control' => 'no-store',
         ]);
-    }
-
-    /** Tokens present but no password set, while the gate is switched on. */
-    private function gateMisconfigured(): bool
-    {
-        if (! config('metasearch.gate.enabled')) {
-            return false;
-        }
-
-        $anyToken = false;
-        foreach (config('metasearch.tokens') as $var) {
-            if ((string) env($var, '') !== '') {
-                $anyToken = true;
-                break;
-            }
-        }
-
-        return $anyToken && (string) config('metasearch.gate.password', '') === '';
     }
 
     private function json(array $body, int $status): Response

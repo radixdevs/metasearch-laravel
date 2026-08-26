@@ -1106,13 +1106,11 @@ var MS=(()=>{var w=Object.defineProperty;var G=Object.getOwnPropertyDescriptor;v
      different messages to show a partner, and collapsing them into "something
      went wrong" wastes the one piece of information the response carried. */
   var FAILURE_COPY = {
-    locked: ["Session expired", "This demo's access session has ended. Reload the page and enter the password again."],
     rate_limited: ["Too many searches", "This demo limits how fast searches can run. Wait a few seconds and try again."],
     offline: ["No connection", "This device is offline. Reconnect and search again."],
     upstream_timeout: ["The search timed out", "The API did not answer within 25 seconds. AI suggestions are the slow path \u2014 turning them off will usually get a result."],
     upstream_unreachable: ["The API did not answer", "The search service could not be reached. Try again in a moment."],
     server_misconfigured: ["This demo is not configured", "No API credential is set for this catalogue, so the search could not be sent. This is a setup problem here, not a problem with the API."],
-    gate_misconfigured: ["This demo is not configured", "The server holds API credentials but has no access password set, so it is refusing to serve. This is a setup problem here."],
     unknown_catalogue: ["Unknown catalogue", "The request named a catalogue the server does not recognise."],
     rejected: ["The API refused the search", "The request was rejected. The raw response has the details."],
     malformed: ["The response could not be read", "The API answered with something that was not a search result."],
@@ -1134,19 +1132,18 @@ var MS=(()=>{var w=Object.defineProperty;var G=Object.getOwnPropertyDescriptor;v
       .then(function (res) {
         if (!res.ok) {
           /* The proxy maps trouble onto its own statuses, so these are ours to
-             read: 401 is the gate, 429 our own limiter, 504 our timeout, 502
-             the upstream unreachable from the server, 500 a missing token. */
+             read: 429 is our own limiter, 504 our timeout, 502 the upstream
+             unreachable from the server, 500 a missing token. Anything else is
+             the upstream's own status passed through, body and all. */
           return res.json().catch(function () { return {}; }).then(function (body) {
             var kind = body && body.error ? body.error : null;
             if (!kind) {
-              kind = res.status === 401 || res.status === 403 ? "locked"
-                : res.status === 429 ? "rate_limited"
+              kind = res.status === 429 ? "rate_limited"
                 : res.status === 504 ? "upstream_timeout"
                 : res.status === 502 ? "upstream_unreachable"
                 : res.status === 500 ? "server_misconfigured"
                 : "rejected";
             }
-            if (kind === "gate_locked") kind = "locked";
             done(null, kind);
           });
         }

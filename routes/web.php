@@ -1,36 +1,32 @@
 <?php
 
-use App\Http\Controllers\GateController;
 use App\Http\Controllers\SearchController;
-use App\Http\Middleware\RequireGate;
 use Illuminate\Support\Facades\Route;
 
 /*
- * The whole application is four routes: a page, a search proxy, and the unlock
- * form. Everything else the demo does happens in the browser.
+ * The whole application is two routes: a page and a search proxy. Everything
+ * else the demo does happens in the browser.
  */
 
 Route::get('/', function () {
     return view('demo', [
         'catalogues' => config('metasearch.catalogues'),
     ]);
-})->middleware(RequireGate::class)->name('demo');
+})->name('demo');
 
 /*
- * The search proxy.
+ * The search proxy. PUBLIC AND UNAUTHENTICATED, deliberately.
  *
- * Gate first, throttle second, and the order is deliberate: an unauthenticated
- * flood should cost a session lookup rather than a rate-limiter write, and
- * metering locked-out traffic would let a stranger fill a legitimate partner's
- * bucket. Past the gate, the throttle bounds what one caller can do.
+ * Worth being explicit about what that means, because it is not obvious from
+ * reading the route: this endpoint attaches a live Radix credential to every
+ * request it makes. Anyone who has the URL can spend the quota through it, and
+ * the throttle below is the only thing bounding how fast.
+ *
+ * That is a considered trade for a partner demo that should open without a
+ * password — the credential itself never reaches the browser, which is the part
+ * that actually matters. If the endpoint is ever found and abused, rotating the
+ * three tokens is the remedy.
  */
 Route::get('/api/search', SearchController::class)
-    ->middleware([RequireGate::class, 'throttle:metasearch'])
+    ->middleware('throttle:metasearch')
     ->name('api.search');
-
-/*
- * The gate itself is excluded from RequireGate for the obvious reason: it is
- * how someone gets past it in the first place.
- */
-Route::get('/gate', [GateController::class, 'show'])->name('gate.show');
-Route::post('/gate', [GateController::class, 'unlock'])->name('gate.unlock');

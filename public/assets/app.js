@@ -208,7 +208,7 @@ var MS=(()=>{var w=Object.defineProperty;var G=Object.getOwnPropertyDescriptor;v
   function aiSection(suggestions) {
     var head = '<div class="flex items-center gap-2 border-b border-stroke-subtle bg-accent-purple-tint px-4 py-4 sm:px-6 sm:py-5">' +
       SPARKLES + '<h2 class="text-[13px] font-semibold tracking-tight text-accent-purple-ink">AI-generated suggestions</h2>' +
-      '<span class="ml-auto text-xs text-text-secondary">' +
+      '<span class="ml-auto text-xs font-semibold text-text-primary">' +
       (s.isGeneratingAi ? "" : suggestions.length + " suggestion" + (suggestions.length === 1 ? "" : "s")) + "</span></div>";
     var body;
     if (s.isGeneratingAi) {

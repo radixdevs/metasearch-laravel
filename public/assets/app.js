@@ -187,8 +187,19 @@ var MS=(()=>{var w=Object.defineProperty;var G=Object.getOwnPropertyDescriptor;v
         '<div class="px-4 py-14 text-center sm:px-6"><p class="text-sm text-text-tertiary">No exact matches available in ' +
         esc(cat.label) + '.</p><p class="mx-auto mt-2.5 max-w-md text-xs leading-relaxed text-text-tertiary">' +
         (s.searchedTerm
-          ? '<span class="font-mono">' + esc(s.searchedTerm) + "</span> is already registered on every TLD in this catalogue, including the hero TLD. " +
-            (s.autosuggest ? "No alternative was available either." : "Turn on Autosuggest to look for alternatives.")
+          ? (function () {
+              /* Name the DOMAIN when one was typed. Someone who searched
+                 "coffeeshop.tech" asked about a specific domain, and answering
+                 about "coffeeshop" answers a question they did not ask. The
+                 response carries typed_tld for exactly this. */
+              var tld = s.main && s.main.meta ? s.main.meta.typed_tld : null;
+              return '<span class="font-mono">' +
+                esc(tld ? s.searchedTerm + "." + tld : s.searchedTerm) + "</span> " +
+                (tld
+                  ? "is taken, and so is every other TLD in this catalogue. "
+                  : "is already registered on every TLD in this catalogue, including the hero TLD. ") +
+                (s.autosuggest ? "No alternative was available either." : "Turn on Autosuggest to look for alternatives.");
+            })()
           : "Enter a term to search this catalogue.") + "</p></div></section>";
     }
     var shown = results.slice(0, s.visible);
@@ -214,7 +225,7 @@ var MS=(()=>{var w=Object.defineProperty;var G=Object.getOwnPropertyDescriptor;v
     if (s.isGeneratingAi) {
       body = '<div role="status" class="flex flex-col items-center gap-3 bg-accent-purple-tint px-4 py-14 text-center sm:px-6">' +
         SPINNER + '<p class="text-sm text-accent-purple-ink">Generating AI suggestions…</p>' +
-        '<p class="max-w-xs text-xs leading-relaxed text-text-secondary">This can take 8 to 17 seconds on a cache miss. Results are cached after the first call.</p></div>';
+        '<p class="max-w-xs text-xs leading-relaxed text-text-secondary">This usually takes a second or two, and is faster once a term has been asked before.</p></div>';
     } else if (!suggestions.length) {
       body = '<p class="px-4 py-10 text-center text-sm text-text-tertiary sm:px-6">No AI suggestions for this term.</p>';
     } else {
@@ -457,7 +468,7 @@ var MS=(()=>{var w=Object.defineProperty;var G=Object.getOwnPropertyDescriptor;v
       '<div class="flex max-h-[85dvh] flex-col overflow-hidden rounded-[var(--radius-unit)] border border-stroke-default bg-card elevate-pop">' +
       '<div class="flex shrink-0 items-start gap-4 border-b border-stroke-subtle px-5 py-4"><div class="min-w-0 flex-1">' +
       '<h2 id="dev-dialog-title" class="text-[13px] font-semibold tracking-tight text-text-primary">Raw API response</h2>' +
-      '<p class="mt-1 text-xs leading-relaxed text-text-tertiary">Exactly what a live integration receives. This demo answers from sample data until it is connected to the API. The base call checks the typed term against every TLD in the catalogue, one entry per TLD. A TLD whose exact match is taken is omitted, unless you typed that exact domain, in which case it comes back marked unavailable. AI suggestions use a second call so the main results aren&apos;t blocked by the 8 to 17 second cache-miss path.</p></div>' +
+      '<p class="mt-1 text-xs leading-relaxed text-text-tertiary">Exactly what a live integration receives. These are real responses from the MetaSearch API. The base call checks the typed term against every TLD in the catalogue, one entry per TLD. A TLD whose exact match is taken is omitted, unless you typed that exact domain, in which case it comes back marked unavailable. AI suggestions use a second call so the main results aren&apos;t held up while they generate.</p></div>' +
       '<button type="button" data-close aria-label="Close raw API response" class="btn-tertiary flex shrink-0 items-center justify-center rounded-[var(--radius-cta)] p-1.5">' +
       '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="size-3.5"><path d="M4 4l8 8M12 4l-8 8"></path></svg></button></div>' +
       '<div class="min-h-0 flex-1 overflow-y-auto">' + requestList().map(function (r) {
